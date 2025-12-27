@@ -2,7 +2,7 @@ from flask import Flask, request, render_template, jsonify
 import subprocess, os, signal
 app = Flask(__name__)
 
-PYMD3 = os.path.expanduser("/home/ghost/.venvs/pymd3/bin/python3")
+PYMD3 = os.path.expanduser("/home/ghost/ghost/bin/python3")
 tunneld_proc = None
 loc_proc = None
 LOG_DIR = "/tmp/pymd3_logs"
