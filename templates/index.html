@@ -83,11 +83,12 @@ body {
 
 .button-group.single {
     justify-content: center;
+    margin-bottom: 0;
 }
 
 button {
     flex: 1;
-    max-width: 180px;
+    max-width: 220px;
     padding: 16px 24px;
     font-size: 15px;
     font-weight: 600;
@@ -128,6 +129,15 @@ button.danger:hover {
     box-shadow: 0 8px 30px rgba(239, 68, 68, 0.4);
 }
 
+button.success {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    box-shadow: 0 4px 20px rgba(16, 185, 129, 0.25);
+}
+
+button.success:hover {
+    box-shadow: 0 8px 30px rgba(16, 185, 129, 0.4);
+}
+
 .input-group {
     display: flex;
     gap: 14px;
@@ -165,6 +175,129 @@ input::placeholder {
     overflow: hidden;
     border: 1px solid rgba(255, 255, 255, 0.12);
     box-shadow: 0 6px 25px rgba(0, 0, 0, 0.3);
+}
+
+/* Device Info Card */
+.device-card {
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    border-radius: 14px;
+    padding: 18px;
+    margin-bottom: 22px;
+    display: none;
+    animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.device-card.visible {
+    display: block;
+}
+
+.device-card-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.device-icon {
+    width: 44px;
+    height: 44px;
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+}
+
+.device-status {
+    flex: 1;
+}
+
+.device-status .name {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #f0f0f0;
+}
+
+.device-status .status {
+    font-size: 0.85rem;
+    color: #10b981;
+    font-weight: 500;
+}
+
+.device-info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.device-info-item {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+    padding: 12px;
+}
+
+.device-info-item .label {
+    font-size: 0.75rem;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+}
+
+.device-info-item .value {
+    font-size: 0.95rem;
+    color: #e0e0e0;
+    font-weight: 500;
+}
+
+/* Not connected state */
+.not-connected {
+    text-align: center;
+    padding: 20px;
+    color: #888;
+    font-size: 0.9rem;
+}
+
+.not-connected-icon {
+    font-size: 48px;
+    margin-bottom: 12px;
+    opacity: 0.5;
+}
+
+/* Toast notifications */
+.toast {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: rgba(30, 30, 46, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 14px 24px;
+    color: #e0e0e0;
+    font-size: 0.9rem;
+    font-weight: 500;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+    z-index: 1000;
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    max-width: 90%;
+    text-align: center;
+}
+
+.toast.visible {
+    transform: translateX(-50%) translateY(0);
+}
+
+.toast.error {
+    border-color: rgba(239, 68, 68, 0.5);
+    background: rgba(239, 68, 68, 0.15);
+}
+
+.toast.success {
+    border-color: rgba(16, 185, 129, 0.5);
+    background: rgba(16, 185, 129, 0.15);
 }
 
 #logs-section {
@@ -214,6 +347,13 @@ input::placeholder {
     background: rgba(255, 255, 255, 0.5);
 }
 
+.version {
+    text-align: center;
+    padding: 15px;
+    color: #666;
+    font-size: 0.8rem;
+}
+
 @media (max-width: 520px) {
     body {
         padding: 15px;
@@ -253,6 +393,14 @@ input::placeholder {
     #map {
         height: 240px;
     }
+    
+    .device-info-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+button.loading {
+    color: transparent;
 }
 
 button.loading::after {
@@ -265,7 +413,7 @@ button.loading::after {
     margin-left: -9px;
     margin-top: -9px;
     border: 2px solid transparent;
-    border-top: 2px solid rgba(255, 255, 255, 0.6);
+    border-top: 2px solid rgba(255, 255, 255, 0.8);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
 }
@@ -274,29 +422,71 @@ button.loading::after {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
+
+/* GPS Section disabled state */
+.section.disabled {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+.section.disabled::after {
+    content: "Connectez d'abord votre iPhone";
+    display: block;
+    text-align: center;
+    color: #888;
+    font-size: 0.85rem;
+    margin-top: 15px;
+}
 </style>
 </head>
 <body>
 <div class="container">
     <div class="header">
         <h1>Ghost</h1>
-        <p>Remote Control Interface</p>
+        <p>Simulateur de localisation GPS</p>
     </div>
 
     <div class="section">
-        <div class="section-title">Contrôle du tunnel</div>
-        <div class="button-group">
-            <button id="btn-init">Démarrer</button>
-            <button id="btn-stop-tunnel" class="danger">Arrêter</button>
+        <div class="section-title">Connexion iPhone</div>
+        
+        <!-- État non connecté -->
+        <div id="not-connected-state" class="not-connected">
+            <div class="not-connected-icon">📱</div>
+            <p>Aucun iPhone connecté</p>
+        </div>
+        
+        <!-- Carte d'info appareil (cachée par défaut) -->
+        <div id="device-card" class="device-card">
+            <div class="device-card-header">
+                <div class="device-icon">📱</div>
+                <div class="device-status">
+                    <div class="name" id="device-name">iPhone</div>
+                    <div class="status">✓ Tunnel actif</div>
+                </div>
+            </div>
+            <div class="device-info-grid">
+                <div class="device-info-item">
+                    <div class="label">iOS</div>
+                    <div class="value" id="device-ios">-</div>
+                </div>
+                <div class="device-info-item">
+                    <div class="label">Modèle</div>
+                    <div class="value" id="device-model">-</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="button-group single">
+            <button id="btn-connect" class="success">Connecter l'iPhone</button>
         </div>
     </div>
 
-    <div class="section">
+    <div class="section disabled" id="gps-section">
         <div class="section-title">Carte interactive</div>
         <div id="map"></div>
     </div>
 
-    <div class="section">
+    <div class="section disabled" id="location-section">
         <div class="section-title">Localisation GPS</div>
         <div class="input-group">
             <input id="lat" placeholder="Latitude" type="text">
@@ -304,100 +494,194 @@ button.loading::after {
         </div>
         <div class="button-group">
             <button id="btn-apply">Appliquer</button>
-            <button id="btn-stop-loc" class="danger">Rétablir la position</button>
+            <button id="btn-stop-loc" class="danger">Rétablir</button>
         </div>
     </div>
 
-        <p>v1.4</p>
+    <div class="version">v1.5</div>
+    
     <div class="section" id="logs-section">
         <div class="section-title">Logs système</div>
         <div id="log"></div>
     </div>
 </div>
 
+<!-- Toast notification -->
+<div id="toast" class="toast"></div>
+
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script>
+// État de l'application
+let isConnected = false;
+let deviceInfo = null;
+
+// Éléments DOM
+const btnConnect = document.getElementById('btn-connect');
+const deviceCard = document.getElementById('device-card');
+const notConnectedState = document.getElementById('not-connected-state');
+const gpsSection = document.getElementById('gps-section');
+const locationSection = document.getElementById('location-section');
 const logEl = document.getElementById('log');
 const logsSection = document.getElementById('logs-section');
-let lastLogLength = 0;
-let pendingButtons = [];
+const toast = document.getElementById('toast');
 
-function appendLog(msg, cls="internal") {
-    if (!msg) return;
-    const span = document.createElement("div");
-    span.className = cls;
-    span.textContent = msg;
-    logEl.appendChild(span);
-    logEl.scrollTop = logEl.scrollHeight;
-    
-    if (pendingButtons.length > 0) {
-        pendingButtons.forEach(btn => {
-            btn.disabled = false;
-            btn.classList.remove('loading');
-        });
-        pendingButtons = [];
+// Toast notification
+function showToast(message, type = 'info') {
+    toast.textContent = message;
+    toast.className = 'toast ' + type;
+    toast.classList.add('visible');
+    setTimeout(() => toast.classList.remove('visible'), 3500);
+}
+
+// Mise à jour de l'UI selon l'état de connexion
+function updateUI() {
+    if (isConnected && deviceInfo) {
+        notConnectedState.style.display = 'none';
+        deviceCard.classList.add('visible');
+        document.getElementById('device-name').textContent = deviceInfo.name;
+        document.getElementById('device-ios').textContent = 'iOS ' + deviceInfo.ios_version;
+        document.getElementById('device-model').textContent = deviceInfo.model;
+        
+        btnConnect.textContent = 'Déconnecter';
+        btnConnect.classList.add('danger');
+        btnConnect.classList.remove('success');
+        
+        gpsSection.classList.remove('disabled');
+        locationSection.classList.remove('disabled');
+    } else {
+        notConnectedState.style.display = 'block';
+        deviceCard.classList.remove('visible');
+        
+        btnConnect.textContent = 'Connecter l\'iPhone';
+        btnConnect.classList.remove('danger');
+        btnConnect.classList.add('success');
+        
+        gpsSection.classList.add('disabled');
+        locationSection.classList.add('disabled');
     }
 }
 
-async function postText(url, bodyObj, btn) {
-    if (btn) {
-        btn.disabled = true;
-        btn.classList.add('loading');
-    }
-    pendingButtons.push(btn);
-    
-    try {
-        const resp = await fetch(url, {
-            method: 'POST',
-            headers: bodyObj ? {'Content-Type': 'application/json'} : undefined,
-            body: bodyObj ? JSON.stringify(bodyObj) : undefined
-        });
-        const txt = await resp.text();
-        appendLog(txt, "internal");
-    } catch (error) {
-        appendLog(`Erreur: ${error.message}`, "stderr");
-        if (btn) {
-            btn.disabled = false;
-            btn.classList.remove('loading');
+// Connexion/Déconnexion
+btnConnect.onclick = async () => {
+    if (isConnected) {
+        // Déconnexion
+        btnConnect.disabled = true;
+        btnConnect.classList.add('loading');
+        
+        try {
+            const resp = await fetch('/disconnect', { method: 'POST' });
+            const data = await resp.json();
+            
+            if (data.success) {
+                isConnected = false;
+                deviceInfo = null;
+                updateUI();
+                showToast('iPhone déconnecté', 'success');
+            }
+        } catch (error) {
+            showToast('Erreur de déconnexion', 'error');
         }
+        
+        btnConnect.disabled = false;
+        btnConnect.classList.remove('loading');
+    } else {
+        // Connexion
+        btnConnect.disabled = true;
+        btnConnect.classList.add('loading');
+        btnConnect.textContent = '';
+        
+        try {
+            const resp = await fetch('/connect', { method: 'POST' });
+            const data = await resp.json();
+            
+            if (data.success) {
+                isConnected = true;
+                deviceInfo = data.device;
+                updateUI();
+                showToast(`${deviceInfo.name} connecté !`, 'success');
+            } else {
+                showToast(data.error || 'Échec de la connexion', 'error');
+            }
+        } catch (error) {
+            showToast('Erreur de connexion au serveur', 'error');
+        }
+        
+        btnConnect.disabled = false;
+        btnConnect.classList.remove('loading');
+        updateUI();
     }
-}
-
-const btnInit = document.getElementById('btn-init');
-btnInit.onclick = () => {
-    appendLog("[Init] lancement...", "internal");
-    postText('/init', null, btnInit);
 };
 
-const btnStopTunnel = document.getElementById('btn-stop-tunnel');
-btnStopTunnel.onclick = () => {
-    appendLog("[Stop Tunnel]...", "internal");
-    postText('/stop_tunnel', null, btnStopTunnel);
-};
-
+// Appliquer la localisation
 const btnApply = document.getElementById('btn-apply');
-btnApply.onclick = () => {
+btnApply.onclick = async () => {
     const lat = document.getElementById('lat').value;
     const lon = document.getElementById('lon').value;
     
+    // Commande secrète pour afficher les logs
     if (lat.toLowerCase() === 'showlogs') {
         logsSection.style.display = 'block';
-        appendLog("[Debug] Logs actives via commande secrete", "internal");
         document.getElementById('lat').value = '';
+        showToast('Logs activés', 'success');
         return;
     }
     
-    appendLog(`[Apply] ${lat}, ${lon}`, "internal");
-    waitingForLocation = true;
-    postText('/apply', {lat, lon}, btnApply);
+    if (!lat || !lon) {
+        showToast('Entrez une latitude et longitude', 'error');
+        return;
+    }
+    
+    if (!isConnected) {
+        showToast('Connectez d\'abord votre iPhone', 'error');
+        return;
+    }
+    
+    btnApply.disabled = true;
+    btnApply.classList.add('loading');
+    
+    try {
+        const resp = await fetch('/apply', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ lat, lon })
+        });
+        const data = await resp.json();
+        
+        if (data.success) {
+            showToast('Position appliquée !', 'success');
+        } else {
+            showToast(data.error || 'Échec', 'error');
+        }
+    } catch (error) {
+        showToast('Erreur serveur', 'error');
+    }
+    
+    btnApply.disabled = false;
+    btnApply.classList.remove('loading');
 };
 
+// Rétablir la position
 const btnStopLoc = document.getElementById('btn-stop-loc');
-btnStopLoc.onclick = () => {
-    appendLog("[Stop localisation]...", "internal");
-    postText('/stop_location', null, btnStopLoc);
+btnStopLoc.onclick = async () => {
+    btnStopLoc.disabled = true;
+    btnStopLoc.classList.add('loading');
+    
+    try {
+        const resp = await fetch('/stop_location', { method: 'POST' });
+        const data = await resp.json();
+        
+        if (data.success) {
+            showToast('Position réelle rétablie', 'success');
+        }
+    } catch (error) {
+        showToast('Erreur', 'error');
+    }
+    
+    btnStopLoc.disabled = false;
+    btnStopLoc.classList.remove('loading');
 };
 
+// Carte Leaflet
 const map = L.map('map').setView([48.8566, 2.3522], 5);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OpenStreetMap contributors'
@@ -405,12 +689,27 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 
 let marker = null;
 map.on('click', function(e) {
+    if (!isConnected) {
+        showToast('Connectez d\'abord votre iPhone', 'error');
+        return;
+    }
+    
     const {lat, lng} = e.latlng;
     document.getElementById('lat').value = lat.toFixed(6);
     document.getElementById('lon').value = lng.toFixed(6);
     if (marker) marker.setLatLng(e.latlng);
     else marker = L.marker(e.latlng).addTo(map);
 });
+
+// Logs (pour debug)
+function appendLog(msg, cls="internal") {
+    if (!msg) return;
+    const span = document.createElement("div");
+    span.className = cls;
+    span.textContent = msg;
+    logEl.appendChild(span);
+    logEl.scrollTop = logEl.scrollHeight;
+}
 
 async function refreshLogs(proc) {
     try {
@@ -419,13 +718,35 @@ async function refreshLogs(proc) {
         if (data.stdout) appendLog(data.stdout, "stdout");
         if (data.stderr) appendLog(data.stderr, "stderr");
     } catch (error) {
-        // Silent error handling
+        // Silent
     }
 }
 
+// Vérifier le statut périodiquement
+async function checkStatus() {
+    try {
+        const resp = await fetch('/status');
+        const data = await resp.json();
+        
+        if (isConnected && !data.connected) {
+            isConnected = false;
+            deviceInfo = null;
+            updateUI();
+            showToast('Connexion perdue', 'error');
+        }
+    } catch (error) {
+        // Silent
+    }
+}
+
+// Initialisation
+updateUI();
+setInterval(checkStatus, 5000);
 setInterval(() => { 
-    refreshLogs("tunneld"); 
-    refreshLogs("loc"); 
+    if (logsSection.style.display !== 'none') {
+        refreshLogs("tunneld"); 
+        refreshLogs("loc");
+    }
 }, 2000);
 </script>
 </body>

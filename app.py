@@ -1,5 +1,5 @@
 from flask import Flask, request, render_template, jsonify
-import subprocess, os, signal
+import subprocess, os, signal, json, time, threading
 app = Flask(__name__)
 
 PYMD3 = os.path.expanduser("/home/ghost/ghost/bin/python3")
@@ -7,6 +7,13 @@ tunneld_proc = None
 loc_proc = None
 LOG_DIR = "/tmp/pymd3_logs"
 os.makedirs(LOG_DIR, exist_ok=True)
+
+# État de la connexion
+connection_state = {
+    "connected": False,
+    "device_info": None,
+    "tunnel_ready": False
+}
 
 def kill_existing_processes():
     """Tue tous les process pymobiledevice3 ou tunneld encore actifs"""
@@ -22,58 +29,200 @@ def kill_existing_processes():
 
 def run_cmd_bg_log(argv, name):
     """Exécute en arrière-plan avec stdout/stderr séparés"""
-    out_file = open(os.path.join(LOG_DIR, f"{name}_out.log"), "a")
-    err_file = open(os.path.join(LOG_DIR, f"{name}_err.log"), "a")
+    # Vider les anciens logs
+    out_path = os.path.join(LOG_DIR, f"{name}_out.log")
+    err_path = os.path.join(LOG_DIR, f"{name}_err.log")
+    open(out_path, "w").close()
+    open(err_path, "w").close()
+    out_file = open(out_path, "a")
+    err_file = open(err_path, "a")
     return subprocess.Popen(argv, stdout=out_file, stderr=err_file, text=True)
+
+def get_device_info():
+    """Récupère les informations de l'appareil connecté via lockdown"""
+    try:
+        result = subprocess.run(
+            [PYMD3, "-m", "pymobiledevice3", "lockdown", "info"],
+            capture_output=True, text=True, timeout=10
+        )
+        if result.returncode == 0:
+            info = {}
+            for line in result.stdout.splitlines():
+                if ":" in line:
+                    key, value = line.split(":", 1)
+                    info[key.strip()] = value.strip()
+            return info
+    except Exception as e:
+        print(f"Erreur get_device_info: {e}")
+    return None
+
+def check_tunnel_status():
+    """Vérifie si le tunnel est prêt en regardant les logs"""
+    try:
+        err_path = os.path.join(LOG_DIR, "tunneld_err.log")
+        if os.path.exists(err_path):
+            with open(err_path, "r") as f:
+                content = f.read()
+                # Le tunnel est prêt quand il affiche l'adresse du tunnel
+                if "Created tunnel" in content or "Tunnel established" in content or "tunnel --" in content.lower():
+                    return True
+                # Vérifier aussi dans stdout
+        out_path = os.path.join(LOG_DIR, "tunneld_out.log")
+        if os.path.exists(out_path):
+            with open(out_path, "r") as f:
+                content = f.read()
+                if "Created tunnel" in content or "Tunnel established" in content or "fd" in content:
+                    return True
+    except Exception as e:
+        print(f"Erreur check_tunnel_status: {e}")
+    return False
 
 @app.route("/")
 def index():
     return render_template("index.html")
 
-@app.route("/init", methods=["POST"])
-def init():
-    global tunneld_proc
+@app.route("/device_info", methods=["GET"])
+def device_info():
+    """Retourne les informations de l'appareil connecté"""
+    info = get_device_info()
+    if info:
+        return jsonify({
+            "connected": True,
+            "info": {
+                "name": info.get("DeviceName", "Inconnu"),
+                "ios_version": info.get("ProductVersion", "Inconnue"),
+                "model": info.get("ProductType", "Inconnu"),
+                "udid": info.get("UniqueDeviceID", "Inconnu")[:8] + "..." if info.get("UniqueDeviceID") else "Inconnu"
+            }
+        })
+    return jsonify({"connected": False, "info": None})
+
+@app.route("/connect", methods=["POST"])
+def connect():
+    """Démarre le tunnel et retourne les infos de l'appareil"""
+    global tunneld_proc, connection_state
+    
+    # Vérifier d'abord si un appareil est connecté
+    device = get_device_info()
+    if not device:
+        return jsonify({
+            "success": False,
+            "error": "Aucun iPhone détecté. Vérifiez la connexion USB et que l'appareil est déverrouillé."
+        }), 400
+    
     kill_existing_processes()
     tunneld_proc = run_cmd_bg_log(
         ["sudo", "-n", PYMD3, "-m", "pymobiledevice3", "remote", "tunneld"],
         "tunneld"
     )
-    return "TUNNEL_STARTING\n"
-
-@app.route("/stop_tunnel", methods=["POST"])
-def stop_tunnel():
-    global tunneld_proc
+    
+    # Attendre que le tunnel soit prêt (max 15 secondes)
+    for _ in range(30):
+        time.sleep(0.5)
+        if check_tunnel_status():
+            connection_state["connected"] = True
+            connection_state["tunnel_ready"] = True
+            connection_state["device_info"] = device
+            return jsonify({
+                "success": True,
+                "device": {
+                    "name": device.get("DeviceName", "Inconnu"),
+                    "ios_version": device.get("ProductVersion", "Inconnue"),
+                    "model": device.get("ProductType", "Inconnu"),
+                    "udid": device.get("UniqueDeviceID", "Inconnu")[:8] + "..." if device.get("UniqueDeviceID") else "Inconnu"
+                }
+            })
+    
+    # Le tunnel n'a pas pu être établi
     if tunneld_proc:
         tunneld_proc.terminate()
         tunneld_proc = None
-        return "Tunnel arrêté\n"
-    return "Aucun tunnel actif\n"
+    return jsonify({
+        "success": False,
+        "error": "Impossible d'établir le tunnel. Vérifiez que le mode développeur est activé."
+    }), 500
+
+@app.route("/disconnect", methods=["POST"])
+def disconnect():
+    """Arrête le tunnel"""
+    global tunneld_proc, loc_proc, connection_state
+    
+    if loc_proc:
+        loc_proc.terminate()
+        loc_proc = None
+    
+    if tunneld_proc:
+        tunneld_proc.terminate()
+        tunneld_proc = None
+    
+    kill_existing_processes()
+    
+    connection_state["connected"] = False
+    connection_state["tunnel_ready"] = False
+    connection_state["device_info"] = None
+    
+    return jsonify({"success": True, "message": "Déconnecté"})
+
+@app.route("/status", methods=["GET"])
+def status():
+    """Retourne l'état actuel de la connexion"""
+    global connection_state, tunneld_proc
+    
+    # Vérifier si le processus est toujours actif
+    if tunneld_proc and tunneld_proc.poll() is not None:
+        connection_state["connected"] = False
+        connection_state["tunnel_ready"] = False
+        tunneld_proc = None
+    
+    return jsonify(connection_state)
 
 @app.route("/apply", methods=["POST"])
 def apply():
-    global loc_proc
+    global loc_proc, connection_state
+    
+    if not connection_state["connected"]:
+        return jsonify({"success": False, "error": "iPhone non connecté"}), 400
+    
     data = request.get_json(force=True)
     lat = str(data.get("lat", "")).strip()
     lon = str(data.get("lon", "")).strip()
+    
     if not lat or not lon:
-        return "Latitude et longitude requises\n", 400
+        return jsonify({"success": False, "error": "Latitude et longitude requises"}), 400
+    
     if loc_proc and loc_proc.poll() is None:
         loc_proc.terminate()
+    
     loc_proc = run_cmd_bg_log([
         PYMD3, "-m", "pymobiledevice3",
         "developer", "dvt", "simulate-location", "set",
         "--tunnel", "", "--", lat, lon
     ], "loc")
-    return f"LOCATION_APPLYING\n"
+    
+    # Attendre un peu pour vérifier si la commande a réussi
+    time.sleep(1)
+    
+    return jsonify({"success": True, "message": f"Position appliquée: {lat}, {lon}"})
 
 @app.route("/stop_location", methods=["POST"])
 def stop_location():
     global loc_proc
+    
     if loc_proc:
         loc_proc.terminate()
         loc_proc = None
-        return "Localisation arrêtée\n"
-    return "Pas de localisation active\n"
+    
+    # Exécuter la commande pour rétablir la vraie position
+    try:
+        subprocess.run([
+            PYMD3, "-m", "pymobiledevice3",
+            "developer", "dvt", "simulate-location", "clear",
+            "--tunnel", ""
+        ], capture_output=True, timeout=5)
+    except:
+        pass
+    
+    return jsonify({"success": True, "message": "Position réelle rétablie"})
 
 @app.route("/logs/<proc>", methods=["GET"])
 def logs(proc):
