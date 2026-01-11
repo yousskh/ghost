@@ -45,13 +45,31 @@ def get_device_info():
             [PYMD3, "-m", "pymobiledevice3", "lockdown", "info"],
             capture_output=True, text=True, timeout=10
         )
-        if result.returncode == 0:
+        print(f"[DEBUG] lockdown info stdout: {result.stdout[:500] if result.stdout else 'EMPTY'}")
+        print(f"[DEBUG] lockdown info stderr: {result.stderr[:500] if result.stderr else 'EMPTY'}")
+        print(f"[DEBUG] return code: {result.returncode}")
+        
+        if result.returncode == 0 and result.stdout:
+            # Essayer de parser comme JSON d'abord
+            try:
+                import json
+                data = json.loads(result.stdout)
+                print(f"[DEBUG] Parsed as JSON: {list(data.keys())[:10]}")
+                return data
+            except json.JSONDecodeError:
+                pass
+            
+            # Sinon parser comme key: value
             info = {}
             for line in result.stdout.splitlines():
                 if ":" in line:
-                    key, value = line.split(":", 1)
-                    info[key.strip()] = value.strip()
-            return info
+                    parts = line.split(":", 1)
+                    if len(parts) == 2:
+                        key = parts[0].strip()
+                        value = parts[1].strip()
+                        info[key] = value
+            print(f"[DEBUG] Parsed as key:value - keys: {list(info.keys())[:10]}")
+            return info if info else None
     except Exception as e:
         print(f"Erreur get_device_info: {e}")
     return None
@@ -86,13 +104,15 @@ def device_info():
     """Retourne les informations de l'appareil connecté"""
     info = get_device_info()
     if info:
+        # Debug: retourner toutes les clés disponibles
         return jsonify({
             "connected": True,
+            "raw_keys": list(info.keys())[:20],
             "info": {
-                "name": info.get("DeviceName", "Inconnu"),
-                "ios_version": info.get("ProductVersion", "Inconnue"),
-                "model": info.get("ProductType", "Inconnu"),
-                "udid": info.get("UniqueDeviceID", "Inconnu")[:8] + "..." if info.get("UniqueDeviceID") else "Inconnu"
+                "name": info.get("DeviceName") or info.get("device_name") or info.get("Name") or "Inconnu",
+                "ios_version": info.get("ProductVersion") or info.get("product_version") or info.get("Version") or "Inconnue",
+                "model": info.get("ProductType") or info.get("product_type") or info.get("Model") or "Inconnu",
+                "udid": (info.get("UniqueDeviceID") or info.get("udid") or info.get("UDID") or "Inconnu")[:8] + "..." if (info.get("UniqueDeviceID") or info.get("udid") or info.get("UDID")) else "Inconnu"
             }
         })
     return jsonify({"connected": False, "info": None})
