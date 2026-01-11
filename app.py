@@ -99,6 +99,22 @@ def check_tunnel_status():
 def index():
     return render_template("index.html")
 
+@app.route("/debug_device", methods=["GET"])
+def debug_device():
+    """Debug: retourne la sortie brute de lockdown info"""
+    try:
+        result = subprocess.run(
+            [PYMD3, "-m", "pymobiledevice3", "lockdown", "info"],
+            capture_output=True, text=True, timeout=15
+        )
+        return jsonify({
+            "stdout": result.stdout[:2000] if result.stdout else None,
+            "stderr": result.stderr[:2000] if result.stderr else None,
+            "returncode": result.returncode
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
 @app.route("/device_info", methods=["GET"])
 def device_info():
     """Retourne les informations de l'appareil connecté"""
