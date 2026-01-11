@@ -12,8 +12,28 @@ os.makedirs(LOG_DIR, exist_ok=True)
 connection_state = {
     "connected": False,
     "device_info": None,
-    "tunnel_ready": False
+    "tunnel_ready": False,
+    "ios_version": None
 }
+
+def parse_ios_version(version_str):
+    """Parse la version iOS et retourne un tuple (major, minor, patch)"""
+    try:
+        parts = version_str.split(".")
+        major = int(parts[0]) if len(parts) > 0 else 0
+        minor = int(parts[1]) if len(parts) > 1 else 0
+        patch = int(parts[2]) if len(parts) > 2 else 0
+        return (major, minor, patch)
+    except:
+        return (0, 0, 0)
+
+def is_ios_17_or_higher():
+    """Vérifie si l'appareil connecté est sous iOS 17 ou supérieur"""
+    version = connection_state.get("ios_version")
+    if not version:
+        return True  # Par défaut, assume iOS 17+ (plus courant maintenant)
+    major, _, _ = parse_ios_version(version)
+    return major >= 17
 
 def kill_existing_processes():
     """Tue tous les process pymobiledevice3 ou tunneld encore actifs"""
@@ -45,16 +65,11 @@ def get_device_info():
             [PYMD3, "-m", "pymobiledevice3", "lockdown", "info"],
             capture_output=True, text=True, timeout=10
         )
-        print(f"[DEBUG] lockdown info stdout: {result.stdout[:500] if result.stdout else 'EMPTY'}")
-        print(f"[DEBUG] lockdown info stderr: {result.stderr[:500] if result.stderr else 'EMPTY'}")
-        print(f"[DEBUG] return code: {result.returncode}")
         
         if result.returncode == 0 and result.stdout:
             # Essayer de parser comme JSON d'abord
             try:
-                import json
                 data = json.loads(result.stdout)
-                print(f"[DEBUG] Parsed as JSON: {list(data.keys())[:10]}")
                 return data
             except json.JSONDecodeError:
                 pass
@@ -68,7 +83,6 @@ def get_device_info():
                         key = parts[0].strip()
                         value = parts[1].strip()
                         info[key] = value
-            print(f"[DEBUG] Parsed as key:value - keys: {list(info.keys())[:10]}")
             return info if info else None
     except Exception as e:
         print(f"Erreur get_device_info: {e}")
@@ -152,6 +166,9 @@ def connect():
         "tunneld"
     )
     
+    # Récupérer la version iOS
+    ios_version = device.get("ProductVersion") or device.get("product_version") or "17.0"
+    
     # Attendre que le tunnel soit prêt (max 15 secondes)
     for _ in range(30):
         time.sleep(0.5)
@@ -159,13 +176,14 @@ def connect():
             connection_state["connected"] = True
             connection_state["tunnel_ready"] = True
             connection_state["device_info"] = device
+            connection_state["ios_version"] = ios_version
             return jsonify({
                 "success": True,
                 "device": {
-                    "name": device.get("DeviceName", "Inconnu"),
-                    "ios_version": device.get("ProductVersion", "Inconnue"),
-                    "model": device.get("ProductType", "Inconnu"),
-                    "udid": device.get("UniqueDeviceID", "Inconnu")[:8] + "..." if device.get("UniqueDeviceID") else "Inconnu"
+                    "name": device.get("DeviceName") or device.get("device_name") or "Inconnu",
+                    "ios_version": ios_version,
+                    "model": device.get("ProductType") or device.get("product_type") or "Inconnu",
+                    "udid": (device.get("UniqueDeviceID") or device.get("udid") or "Inconnu")[:8] + "..." if (device.get("UniqueDeviceID") or device.get("udid")) else "Inconnu"
                 }
             })
     
@@ -196,6 +214,7 @@ def disconnect():
     connection_state["connected"] = False
     connection_state["tunnel_ready"] = False
     connection_state["device_info"] = None
+    connection_state["ios_version"] = None
     
     return jsonify({"success": True, "message": "Déconnecté"})
 
@@ -229,11 +248,21 @@ def apply():
     if loc_proc and loc_proc.poll() is None:
         loc_proc.terminate()
     
-    loc_proc = run_cmd_bg_log([
-        PYMD3, "-m", "pymobiledevice3",
-        "developer", "dvt", "simulate-location", "set",
-        "--tunnel", "", "--", lat, lon
-    ], "loc")
+    # Commande différente selon la version iOS
+    if is_ios_17_or_higher():
+        # iOS 17+ : utilise dvt avec tunnel
+        loc_proc = run_cmd_bg_log([
+            PYMD3, "-m", "pymobiledevice3",
+            "developer", "dvt", "simulate-location", "set",
+            "--tunnel", "", "--", lat, lon
+        ], "loc")
+    else:
+        # iOS < 17 : commande sans dvt
+        loc_proc = run_cmd_bg_log([
+            PYMD3, "-m", "pymobiledevice3",
+            "developer", "simulate-location", "set",
+            "--", lat, lon
+        ], "loc")
     
     # Attendre un peu pour vérifier si la commande a réussi
     time.sleep(1)
@@ -250,11 +279,19 @@ def stop_location():
     
     # Exécuter la commande pour rétablir la vraie position
     try:
-        subprocess.run([
-            PYMD3, "-m", "pymobiledevice3",
-            "developer", "dvt", "simulate-location", "clear",
-            "--tunnel", ""
-        ], capture_output=True, timeout=5)
+        if is_ios_17_or_higher():
+            # iOS 17+
+            subprocess.run([
+                PYMD3, "-m", "pymobiledevice3",
+                "developer", "dvt", "simulate-location", "clear",
+                "--tunnel", ""
+            ], capture_output=True, timeout=5)
+        else:
+            # iOS < 17
+            subprocess.run([
+                PYMD3, "-m", "pymobiledevice3",
+                "developer", "simulate-location", "clear"
+            ], capture_output=True, timeout=5)
     except:
         pass
     
